@@ -12,7 +12,7 @@ Using difference between distance on previous request and actual, program can ca
 On filtred samples is working alghoritm, which detect extremas. 
 Extremum is important information about change directory of walk (patient turned back, and go in opposite direction). 
 
-Example plot below, "cross" mean detected extrema
+Example plot below, "cross" mean detected extrema.
 ![plot](https://user-images.githubusercontent.com/87012097/163970487-1ce7266b-8ff2-46bf-aaed-aa54160b078f.png)
 
 
