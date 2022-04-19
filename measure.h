@@ -58,6 +58,8 @@ typedef struct{
 	uint32_t	nbuffer[EXTR_SIZE];
 	uint32_t*	nptr;
 	uint32_t* 	ptr;
+	uint8_t 	count;
+	uint8_t		relapse;
 }ExtremumTypeDef;
 
 typedef struct{
@@ -75,14 +77,22 @@ typedef struct{
 	uint32_t buffer[DIRECTORY_CHANGES];	//store next distances between change directory
 	uint32_t dist_base;
 	uint8_t	 directory;					//store numbers of changes directory
+	uint8_t relapse;
 	float meters;
 }DistanceTypeDef;
+
+typedef struct{
+	uint16_t  n;
+	uint32_t raw;
+	uint32_t fltrd;
+}ReadTypeDef;
 //----------------------------------------------------------------------
 //		Exported Variables
 //----------------------------------------------------------------------
 
 DistanceTypeDef		 	Dist;
 FiltrBuffTypeDef		Filtred;
+ReadTypeDef				Read;
 
 uint32_t dist_mm;
 float dist;
@@ -95,13 +105,14 @@ float dist;
 void CalcDistance(uint16_t n);
 uint8_t CalcSegments(uint16_t n);
 void FilterSample(uint16_t n);
-void ReadFromFile(void);
+int16_t ControlEOF(int16_t n);
+void ReadFromFile(FILE* fp, uint16_t n);
 void FilterSamples_FromFile(void);
 void CalcDerivative(void);
-int8_t WriteExtrToFile(FILE *fp, uint32_t *d, uint32_t *dd);
-int8_t WriteToFile(FILE *fp, uint32_t* filtered_value);
+int8_t WriteExtrToFile(FILE *fp, uint16_t *n, uint32_t *extr);
+int8_t WriteToFile(FILE *fp, uint16_t n,uint32_t *raw, uint32_t *fltr);
 int8_t WriteFloatToFile(FILE *fp, float *d);
-void DetermineExtremum(uint16_t n);
+void DetermineExtremum(FILE* fp, uint16_t n);
 void FindExtremum(FILE *fp, uint16_t n);
 uint32_t ExtremumFlat(uint32_t *flat);
 uint8_t DetectStay(uint32_t *from, uint32_t *to);

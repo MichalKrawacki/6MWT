@@ -20,6 +20,8 @@
 #define SAMPLING_100MS 3600
 #define SAMPLING_200MS 1800
 
+#define WRITTING_ON		0
+#define READING_ON		1
 //----------------------------------------------------------------------
 //		Type Definitions
 //----------------------------------------------------------------------
@@ -43,19 +45,6 @@ typedef enum{
 	TLV_BUSY 					= 4,
 	TLV_OPERATION_NOT_PERMITTED = 5
 } ResErrorTypeDef;
-/*
-typedef struct{
-	uint32_t single_sample;
-	uint32_t samples[SAMPLE_COUNT];
-	uint32_t sum_of_samples;
-	uint32_t mean;
-	uint32_t hardware_accuracy;
-	uint32_t err_threshold_plus;
-	uint32_t err_threshold_minus;
-	uint32_t distance[2000]; // for 6 minutes, read distance every 200m, make total of 1800 samples;
-	uint32_t calculated_distance;
-}DistTypeDef;
-*/
 
 typedef struct{
 	uint8_t bytes;

@@ -48,7 +48,6 @@ typedef struct{
 #define MS100			100000	//100ms time (in useconds)
 #define MS50			50000	//50ms time (in useconds)
 
-//#define _TEST_PRINT
 //----------------------------------------------------------------------
 //		Private Macros
 //----------------------------------------------------------------------
@@ -80,7 +79,7 @@ static TLVReqTypeDef  TLV_Request;
  * 3, 4 bytes -> TLV Response (TLV2 Type, Length (in bytes))
  * 5, 6 bytes -> TLV Response (TLV3 Type, Length (in bytes))
  */
-										// {SIZE of frame, Request, Request, Type_1, Length_1, Type_2, Length_2, Type_3, Length_3}
+										// {SIZE of frame, Request, Type_1, Length_1, Type_2, Length_2, Type_3, Length_3}
 const uint8_t dwm_pos_set[] 			= {0x02, 0x01, 0x0d};
 const uint8_t dwm_pos_get[] 			= {0x04, 0x02, 0x00, 0x41, 0x0d};
 const uint8_t dwm_upd_rate_set[] 		= {0x02, 0x03, 0x02};
@@ -160,39 +159,52 @@ unsigned long GetMiliseconds(unsigned long ms){
 
 uint8_t Task(int *fd, TLVResTypeDef* ptr_tlv){
 
-	uint16_t n = 0;
+	uint8_t flag = 1;
+	int16_t n = 0;
 	//unsigned long timeStart = GetTickCount();
 	unsigned long timeStart, timeEnd = 0;
 	signal(SIGINT, INThandler);						//install Ctrl-C handler to catch a signal and abort loop measuring
 
-	FILE *fp;
-	fp = fopen("/home/michal/Dokumenty/Octave/m08.txt", "w");
+	FILE *fpw;
+	fpw = fopen("/home/michal/Dokumenty/Octave/m02.txt", "w");
 
+	FILE *fpx;
+	fpx = fopen("/home/michal/Dokumenty/Octave/x02.txt", "w");
+
+#if(READING_ON)
+	FILE *fpr;
+	fpr = fopen("/home/michal/Dokumenty/Octave/m01.txt", "r");
+#endif
 	while(n < SAMPLING_100MS){
 
 		timeStart = GetTickCount();
 		if (term_signal_set > 0){					//flag to check, after CTRL+C term_signal_set = 1
 			break;
 		}
+#if(READING_ON)
+		ReadFromFile(fpr, n);
+		raw_single_meas = Read.raw;
+#elif(!READING_ON)
 		//collect 1st 16 samples
 		LocalisationGet(fd, ptr_tlv);
+#endif
 		raw_meas[n] = raw_single_meas;
 		raw_single_meas = 0;
-
 		//do 1st filtered sample after collect 16 raw samples
 		if(n >= (AVERAGE_OF)){
 			FilterSample(n);
-			WriteToFile(fp, Filtred.ptr);
-
 			//go inside if only once, at start to save 1st minumum (or maximum)
 			if(n == AVERAGE_OF){
-				DetermineExtremum(n);
+				DetermineExtremum(fpx, n);
 			}
 		}
-		//1st condition, because after 1st AVERAGE_OF samples array named filtred_buffer[] store only 1 filtered sample, so must be at least 10 samples (1 second) to calculate distance. SAMPLES_COUNT is fixedd "offset".
+		//1st condition, because after 1st AVERAGE_OF samples array named filtred_buffer[] store only 1 filtered sample, so must be at least 10 samples (1 second) to calculate distance. SAMPLES_COUNT is fixed "offset".
 		if(n == (AVERAGE_OF + SAMPLES_COUNT)){
 			CalcDistance(n);
 		}
+#if(WRITTING_ON)
+		WriteToFile(fpw, n, &raw_meas[n], Filtred.ptr);
+#endif
 		//after another 10 samples, calculate distance (first distance is calculated from 1st raw sample)
 		if(n > (AVERAGE_OF + SAMPLES_COUNT) && ( (n % SAMPLES_COUNT) == 0 )){
 			CalcDistance(n);
@@ -200,20 +212,26 @@ uint8_t Task(int *fd, TLVResTypeDef* ptr_tlv){
 		}
 		//do this in each iteration after once conditions has been met
 		if((n - AVERAGE_OF) >= (WINDOW - 1)){
-			FindExtremum(fp, n);
+			FindExtremum(fpx, n);
 		}
-
+#if(!READING_ON)
 		n++;
 		timeEnd = GetTickCount();
-		//printf("%lu\n", timeEnd);
-		//usleep(50000);
 		while((GetTickCount() - timeStart) < 100);
+#else
+		n = ControlEOF(n);
+		if(n == -1){
+			break;
+		}
+#endif
 	}
-	fclose(fp);									//uncomennt if want to save raw data to file
-
+#if(WRITTING_ON)
+	fclose(fpw);
+#elif(READING_ON)
+	fclose(fpr);
+#endif
 	return DWM1001C_OK;
 }
-
 
 uint8_t CollectSamples(int *fd, TLVResTypeDef* ptr_tlv){
 

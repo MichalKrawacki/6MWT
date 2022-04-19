@@ -4,8 +4,6 @@
  *  Created on: 25 mar 2022
  *      Author: michal
  */
-
-
 //------------------------------------------------------------------------------
 //    Include
 //------------------------------------------------------------------------------
@@ -61,7 +59,7 @@ char extremas_directory[]				= "/home/michal/Dokumenty/Octave/e03.txt";
 
 void FindExtremum(FILE *fp, uint16_t n){
 
-	uint8_t  status = 0, l_min = 0, l_max = 0, r_min = 0, r_max = 0;
+	uint8_t  status = 0, l_min = 0, l_max = 0, r_min = 0, r_max = 0, tmp = 0;
 	uint32_t *start, *mid, *end, *ptr;
 	uint32_t extremum = 0;
 
@@ -78,21 +76,21 @@ void FindExtremum(FILE *fp, uint16_t n){
 	//ptr to store address of last extremum
 	ptr = Dist.Extr.ptr;
 
-	if( ( (l_max + r_max) == (WINDOW - 1) ) || ( (l_min + r_min) == (WINDOW - 1) ) ){
+	if( ( (l_max + r_max) >= (WINDOW - 2) ) || ( (l_min + r_min) >= (WINDOW - 2) ) ){
 		//check if difference is more than, because during random swaying, alghoritm can deteck much more extremas
 		if(abs(*ptr - *mid) > 5 * ACCURACY){
-			Dist.Extr.ptr++;							//increment pointer to data buffer
-			*Dist.Extr.ptr = *mid;					 	//copy extremum to buffer
+			Dist.Extr.ptr++;									//increment pointer to data buffer
+			*Dist.Extr.ptr = *mid;					 			//copy extremum to buffer
 
-			//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-			Dist.Extr.nptr++;							//increment pointer to number of sample buffer
-			*Dist.Extr.nptr = n - WIN_CENTER;			//copy number of sample to buffer @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-			//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+			Dist.Extr.nptr++;									//increment pointer to number of sample buffer
+			*Dist.Extr.nptr = n /*- AVERAGE_OF*/ - WIN_CENTER;		//copy number of sample to buffer
 
-			Dist.directory++;							//after this, iterate variable, which stores directory changes
-			Dist.extr_status = EXTR_NEW;				//set status
+			Dist.Extr.count++;									//iterate counter (number of detected extrema)
+			Dist.extr_status = EXTR_NEW;						//set status
 			printf("\n----------------\n");
-			WriteExtrToFile(fp, Filtred.ptr, Dist.Extr.ptr);
+#if(WRITTING_ON)
+			WriteExtrToFile(fp, (uint16_t*)Dist.Extr.nptr, Dist.Extr.ptr);
+#endif
 		}
 	}
 
@@ -100,19 +98,24 @@ void FindExtremum(FILE *fp, uint16_t n){
 		extremum = ExtremumFlat(mid);
 		//check if difference is more than, because during a rest, alghoritm can deteck much more "flat" extremas
 		if(abs(*ptr - extremum) > 5 * ACCURACY){
-			Dist.Extr.ptr++;							//increment pointer to data buffer
-			*Dist.Extr.ptr = extremum;					//copy extremum to buffer
+			Dist.Extr.ptr++;									//increment pointer to data buffer
+			*Dist.Extr.ptr = extremum;							//copy extremum to buffer
 
-			//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-			Dist.Extr.nptr++;							//increment pointer to number of sample buffer
-			*Dist.Extr.nptr = n - WIN_CENTER;			//copy number of sample to buffer @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-			//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+			Dist.Extr.nptr++;									//increment #endifpointer to number of sample buffer
+			*Dist.Extr.nptr = n /*- AVERAGE_OF*/ - WIN_CENTER;		//copy number of sample to buffer
 
-			Dist.directory++;							//after this, iterate variable, which stores directory changes
-			Dist.extr_status = EXTR_NEW;				//set status
+			Dist.Extr.count++;									//iterate counter (number of detected extrema)
+			Dist.extr_status = EXTR_NEW;						//set status
 			printf("\n----------------\n");
-			WriteExtrToFile(fp, Filtred.ptr, Dist.Extr.ptr);
+#if(WRITTING_ON)
+			WriteExtrToFile(fp, (uint16_t*)Dist.Extr.nptr, Dist.Extr.ptr);
+#endif
 		}
+		/*
+		else{
+			WriteExtrToFile(fp, (uint16_t*)Dist.Extr.nptr, &raw_meas[n], Filtred.ptr, (uint32_t*)&tmp);
+		}
+		*/
 	}
 }
 
@@ -231,17 +234,47 @@ void CalcDistance(uint16_t n){
   * @brief  Determine first extremum, to prove measuring
   * @retval none
   */
-void DetermineExtremum(uint16_t n){
-	Dist.directory 	 = 0;
+void DetermineExtremum(FILE* fp, uint16_t n){
+	Dist.Extr.count	 = 1;
 	Dist.Extr.ptr 	 = Dist.Extr.buffer;						//assign ptr to buffer[]
 	Dist.Extr.nptr 	 = Dist.Extr.nbuffer;						//assign nptr to nbuffer[]
 	*(Dist.Extr.ptr) = Filtred.buffer[n - AVERAGE_OF]; 			//enter first filtered sample as first extremum
+	*(Dist.Extr.nptr) = n;
+#if(WRITTING_ON)
+	WriteExtrToFile(fp, (uint16_t*)Dist.Extr.nptr, Dist.Extr.ptr);
+#endif
 }
 
-int8_t WriteExtrToFile(FILE *fp, uint32_t *d, uint32_t *dd){
+int16_t ControlEOF(int16_t n){
+	if(n <= Read.n){
+		n = Read.n;
+		return n;
+	}
+	else{
+		return -1;
+	}
+}
+
+/**
+  * @brief  Read raw measure from .txt
+  * @retval none
+  */
+void ReadFromFile(FILE* fp, uint16_t n){
+
+	char buffer[40] = {0};
+	char  n_s[4] = {0}, raw_s[10] = {0}, fltr_s[10] = {0};
+
+	fgets(buffer, 40, fp);
+	sscanf(buffer, "%s %s %s", n_s, raw_s, fltr_s);
+	Read.n 		= atoi(n_s);
+	Read.raw 	= atoi(raw_s);
+	Read.fltrd 	= atoi(fltr_s);
+}
+
+int8_t WriteExtrToFile(FILE *fp, uint16_t *n, uint32_t *extr){
 	int8_t status = 0;
-	char buffer[20] = {0};
-	sprintf(buffer, "%d %d\n", *d, *dd);
+	char buffer[60] = {0};
+	sprintf(buffer, "%d %d\n", *n, *extr);
 
 	status = fputs(buffer, fp);
 	if(status != -1){
@@ -256,12 +289,17 @@ int8_t WriteExtrToFile(FILE *fp, uint32_t *d, uint32_t *dd){
   * @brief  Write datas to .txt
   * @retval 1 OK, -1 NOK
   */
-int8_t WriteToFile(FILE *fp, uint32_t *d){
+int8_t WriteToFile(FILE *fp, uint16_t n,uint32_t *raw, uint32_t *fltr){
 
 	int8_t status = 0;
-	char buffer[20] = {0};
+	char buffer[40] = {0};
 
-	sprintf(buffer, "%d %d\n", *d, 0);
+	if(n < AVERAGE_OF){
+		sprintf(buffer, "%d %d %d\n", n, *raw, 0);
+	}
+	else if(n >= AVERAGE_OF){
+		sprintf(buffer, "%d %d %d\n", n, *raw, *fltr);
+	}
 	status = fputs(buffer, fp);
 	if(status != -1){
 		return 1;
@@ -385,28 +423,11 @@ void FilterSamples_FromFile(void){
 
 		filtered_value = (filtered_value >> 4);
 		Filtred.buffer[i] = filtered_value;
-		WriteToFile(fp, &(Filtred.buffer[i]));
+		//WriteToFile(fp, &(Filtred.buffer[i]));
 		ptr++;
 		filtered_value = 0;
 	}
 	fclose(fp);
-}
-
-/**
-  * @brief  Read raw measure from .txt
-  * @retval none
-  */
-void ReadFromFile(void){
-
-	uint16_t i = 0;
-
-	FILE *file;
-	file = fopen(measure_directory, "r");
-
-	while (fscanf(file, "%d", &raw_buffer[i]) != EOF){
-		i++;
-	}
-	fclose(file);
 }
 
 /**
