@@ -6,6 +6,7 @@ Physically there are two devices - transmitter and receiver.
 Patient walks in circles in the hall wearing transmitter. 
 Two devices are communicate with each other using internal radio protocol. 
 Receiver is connected to ECG via USB cable and respond after request on UART transmission. 
+Receiver stands at the beginning of the path the patient is walking, so transmitter is always in front of receiver.
 Host request distance data every 100 ms. 
 Colected raw samples are filtered 'online' using moving average. 
 Using difference between distance on previous request and actual, program can calculate walked distance. 
